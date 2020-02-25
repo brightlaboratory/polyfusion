@@ -19,7 +19,7 @@ static inline void padded_conv_relu_fp_libxsmm_core_gemm_fn(int nImg, int nIfm, 
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii, oi, ifm)
+#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii, oi, ifm, ofm)
 	for (img = 0; img < nImg; ++img) {
 		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
 			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
@@ -46,13 +46,11 @@ static inline void padded_conv_relu_fp_libxsmm_core_gemm_fn(int nImg, int nIfm, 
 	}
 
 
-#pragma omp parallel for private(ofm_tile, ij, oj, oi, ii, ofm)
+#pragma omp parallel for private(ofm_tile, oj, oi, ofm)
 	for (img = 0; img < nImg; ++img) {
 		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
 			for (oj = 0; oj < ofh; ++oj) {
-				ij = oj * stride_h;
 				for (oi = 0; oi < ofw; ++oi) {
-					ii = oi * stride_w;
 					for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
 						output[img][ofm_tile][oj][oi][ofm] =
 							(output[img][ofm_tile][oj][oi][ofm] < 0.0f) ? 0.0f :
@@ -65,6 +63,57 @@ static inline void padded_conv_relu_fp_libxsmm_core_gemm_fn(int nImg, int nIfm, 
 #pragma endscop
 }
 
+
+
+static inline void padded_conv_relu_fp_libxsmm_core_gemm_fn_fused(int nImg, int nIfm, int nOfm,
+	int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+#pragma scop
+#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii, oi, ifm, ofm)
+	for (img = 0; img < nImg; ++img) {
+		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+				for (oj = 0; oj < ofh; ++oj) {
+					ij = oj * STRIDE_H;
+
+					for (kj = 0; kj < kh; ++kj) {
+						for (ki = 0; ki < kw; ++ki) {
+							//GEMM
+							for (oi = 0; oi < ofw; ++oi) {
+								ii = oi * STRIDE_W;
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] *
+											pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			for (oj = 0; oj < ofh; ++oj) {
+				for (oi = 0; oi < ofw; ++oi) {
+					for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+						output[img][ofm_tile][oj][oi][ofm] =
+							(output[img][ofm_tile][oj][oi][ofm] < 0.0f) ? 0.0f :
+							output[img][ofm_tile][oj][oi][ofm];
+					}
+				}
+			}
+
+		}
+	}
+#pragma endscop
+}
 
 inline void padded_conv_relu_fp_libxsmm_core_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 	int ifwp, int ofhp, int ofwp, int ifh, int ifw,
