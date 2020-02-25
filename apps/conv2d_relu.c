@@ -229,7 +229,7 @@ void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float in
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
-	int version = 1;
+	int version = 2;
 	int check_correctness = 1;
 
 	correctness_t norms_fwd;

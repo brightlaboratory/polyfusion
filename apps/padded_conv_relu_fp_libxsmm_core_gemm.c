@@ -40,8 +40,6 @@ static inline void padded_conv_relu_fp_libxsmm_core_gemm_fn(int nImg, int nIfm, 
 									}
 								}
 							}
-
-
 						}
 					}
 				}
@@ -72,27 +70,9 @@ inline void padded_conv_relu_fp_libxsmm_core_gemm(int nImg, int nIfm, int nOfm, 
 					ij = oj * stride_h;
 					for (kj = 0; kj < kh; ++kj) {
 						for (ki = 0; ki < kw; ++ki) {
-
-
 							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
 								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
 								&output[img][ofm_tile][oj][0][0]);
-
-
-
-							//GEMM
-						/*
-						for (oi = 0; oi < ofw; ++oi) {
-							ii = oi * stride_w;
-							for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
-								for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
-									output[img][ofm_tile][oj][oi][ofm] +=
-										filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
-								}
-							}
-						}
-						*/
-
 						}
 					}
 				}

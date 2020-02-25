@@ -20,7 +20,7 @@ double padded_conv2d_relu_fp(
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
 
-	if (version == 1) {
+	if (version == 2) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
