@@ -40,6 +40,7 @@ libxsmm_smmfunction fwd_gemm;
 #define NUM_TRIALS 3
 
 #include "naive_conv_fp_relu.c"
+#include "padded_conv2d_relu_fp.c"
 
 typedef struct {
 	double max_rel_err;
@@ -75,232 +76,6 @@ void init_buf(float* buf, long size, int initPos, int initOne)
 	}
 }
 
-/*
-double padded_conv_fp(
-	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
-	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
-	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters,
-	const float naive_input[nImg][nIfm][ifhp][ifwp], const float naive_filter[nOfm][nIfm][kh][kw],
-	float check_output[nImg][nOfm][ofhp][ofwp])
-{
-	int copyGEMMOutputToNCHWformat = 1;
-	unsigned long long l_start, l_end;
-	double l_total = 0.0;
-	int i;
-	// declare a physical padded buffer
-
-
-float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
-zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / GEMM_BLOCK)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * GEMM_BLOCK);
-copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
-
-
-if (version == 0) {
-	// printf("padded_conv_fp_stride_1_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_tiled_loop_order_0_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 1) {
-	// printf("padded_conv_fp_stride_1_tiled_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_tiled_loop_order_1_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 2) {
-	// printf("padded_conv_fp_stride_1_libxsmm_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 3) {
-	// printf("padded_conv_fp_stride_1_libxsmm_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core2_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 4) {
-	// printf("padded_conv_fp_stride_1_libxsmm_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core3_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 5) {
-	// printf("padded_conv_fp_stride_1_libxsmm_core\n");
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core4_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 20) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_tiled_loop_order_0_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 21) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_tiled_loop_order_1_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 22) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 23) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core2_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 24) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core3_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 25) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_libxsmm_core4_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 26) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp5_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 27) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp6_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 28) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp7_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 29) {
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp8_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}
-
-	l_end = libxsmm_timer_tick();
-}
-else if (version == 101) {
-	copyGEMMOutputToNCHWformat = 0;
-	float(*pad_naive_input)[nIfm][ifhp + 2 * pad_h][ifwp + 2 * pad_w]
-		= (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
-
-	zero_buf(&pad_naive_input[0][0][0][0],
-		nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w));
-
-	copy_NCHW_to_PADDED_NCHW(nImg, nIfm, ifhp, ifwp, pad_h, pad_w,
-		naive_input, pad_naive_input);
-
-	l_start = libxsmm_timer_tick();
-	for (i = 0; i < iters; i++) {
-		padded_naive_conv_fp_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w,
-			pad_naive_input, check_output, naive_filter);
-	}
-
-	l_end = libxsmm_timer_tick();
-	libxsmm_free(pad_naive_input);
-}
-else {
-	printf("Incorrect version\n");
-	libxsmm_free(pad_gemm_input);
-	exit(0);
-}
-
-if (copyGEMMOutputToNCHWformat) {
-	printf("Calling copy_GEMM_to_NCHW\n");
-	copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, output, check_output);
-}
-
-libxsmm_free(pad_gemm_input);
-l_total = libxsmm_timer_duration(l_start, l_end);
-return l_total;
-}
-
-*/
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 	const float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK], float pad_gemm[N][C / GEMM_BLOCK][H + 2 * pad_h][W + 2 * pad_w][GEMM_BLOCK])
 {
@@ -454,7 +229,7 @@ void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float in
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
-	int version = 5;
+	int version = 1;
 	int check_correctness = 1;
 
 	correctness_t norms_fwd;
@@ -516,7 +291,8 @@ int main(int argc, char **argv) {
 	ofwp = ofw + 2 * pad_w_out;
 
 
-	printf("PolyScientist config: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", ofw, ofh, nIfm, nOfm, kw, kh, pad_w, pad_h, nImg, ifwp, ifhp, ofwp, ofhp, stride_w, stride_h);
+	printf("PolyScientist config: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+		ofw, ofh, nIfm, nOfm, kw, kh, pad_w, pad_h, nImg, ifwp, ifhp, ofwp, ofhp, stride_w, stride_h);
 
 	/* some empty lines at the beginning */
 	printf("\n\n\n");
@@ -547,25 +323,13 @@ int main(int argc, char **argv) {
 	}
 
 
-	if (version == 0 || version == 1 || version == 2 || version == 3 || version == 4 || version == 5) {
-		if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-			printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
-			return -1;
-		}
 
-		if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
-			// LIBXSMM tiled
-			if (ofwp % T_oi != 0 || T_oi > ofwp) {
-				printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
-				return -1;
-			}
-
-			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-		}
-		else {
-			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-		}
+	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
+		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
+		return -1;
 	}
+
+	fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
 
 #endif
 
@@ -580,29 +344,15 @@ int main(int argc, char **argv) {
 	float(*naive_filter)[nIfm][kh][kw] =
 		(float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
 
-	/*
-	float gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] __attribute__((aligned(2097152)));
-	float gemm_output[nImg][nOfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] __attribute__((aligned(2097152)));
-	float gemm_filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] __attribute__((aligned(2097152)));
-	float check_output[nImg][nOfm][ofhp][ofwp] __attribute__((aligned(2097152)));
-	*/
-
 	float(*gemm_input)[nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
 	float(*gemm_output)[nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
 	float(*gemm_filter)[nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
 	float(*check_output)[nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
 
-	/*
-	printf("gemm_input = %p\n", gemm_input);
-	printf("gemm_output = %p\n", gemm_output);
-	printf("gemm_filter = %p\n", gemm_filter);
-	printf("check_output = %p\n", check_output);
-	*/
 	printf("Initializing data\n");
 	/* initialize data */
 	srand48(1);
 	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp, 0, 0);
-	// set_zeropad_nchw(nImg, nIfm, ifhp, ifwp, pad_h, pad_w, naive_input);
 	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw, 0, 0);
 	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
@@ -619,7 +369,7 @@ int main(int argc, char **argv) {
 		printf("##########################################\n");
 		printf("#   Correctness - FWD (custom-Storage)   #\n");
 		printf("##########################################\n");
-		printf("Calling naive_conv_fp\n");
+		printf("Calling naive_conv_fp_relu_fn\n");
 
 		start = clock();
 		l_start = libxsmm_timer_tick();
@@ -633,13 +383,13 @@ int main(int argc, char **argv) {
 		end = clock();
 		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
 		printf("Total time of naive_conv_fp_relu_fn = %f seconds\n", exec_time);
-		/*
-				printf("Calling padded_conv_fp\n");
-				padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-					ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-					pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1,
-					naive_input, naive_filter, check_output);
-					*/
+
+		printf("Calling padded_conv2d_relu_fp\n");
+		padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1,
+			naive_input, naive_filter, check_output);
+
 		printf("Printing input values\n");
 		printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
 		printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / GEMM_BLOCK][ifhp / 2][ifwp / 2][(nIfm / 2) % GEMM_BLOCK], gemm_input[nImg - 1][(nIfm - 1) / GEMM_BLOCK][ifhp - 1][ifwp - 1][(nIfm - 1) % GEMM_BLOCK]);
@@ -648,43 +398,39 @@ int main(int argc, char **argv) {
 		printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / GEMM_BLOCK][(nIfm / 2) / GEMM_BLOCK][kh / 2][kw / 2][(nOfm / 2) % GEMM_BLOCK][(nIfm / 2) % GEMM_BLOCK], gemm_filter[(nOfm - 1) / GEMM_BLOCK][(nIfm - 1) / GEMM_BLOCK][kh - 1][kw - 1][(nOfm - 1) % GEMM_BLOCK][(nIfm - 1) % GEMM_BLOCK]);
 		printf("Printing output values\n");
 		printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
-		/*
+
 		printf("Printing check_output values\n");
 		printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
 		printf("Printing gemm_output values\n");
 		printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / GEMM_BLOCK][ofhp / 2][ofwp / 2][(nOfm / 2) % GEMM_BLOCK], gemm_output[nImg - 1][(nOfm - 1) / GEMM_BLOCK][ofhp - 1][ofwp - 1][(nOfm - 1) % GEMM_BLOCK]);
-		*/
+
 
 		// compare
-		/*
 		compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
 		printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
 		printf("             1-norm of GEMM-code: %f\n", norms_fwd.one_norm_test);
 		printf("      L2-error-norm of GEMM-code: %f\n", norms_fwd.l2_rel_err);
 		printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
 		printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
-		*/
+
 	}
 	else {
 		/* Warm up */
-		/*
-		padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1,
 			naive_input, naive_filter, check_output);
-			*/
-
 	}
 
 	printf("##########################################\n");
 	printf("#   Performance - FWD (custom-Storage)   #\n");
 	printf("##########################################\n");
 
-	/*
+
 	int trial;
 	double min_l_total = 0.0;
 	for (trial = 0; trial < NUM_TRIALS; trial++) {
-		l_total = padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		l_total = padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters,
 			naive_input, naive_filter, check_output);
@@ -703,7 +449,7 @@ int main(int argc, char **argv) {
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(l_total / iters)));
 	printf("Real_GFLOPS =%.5g\n", (flops*1e-9) / l_total);
-	*/
+
 
 	libxsmm_free(gemm_input);
 	libxsmm_free(gemm_output);

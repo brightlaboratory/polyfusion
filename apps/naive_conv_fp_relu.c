@@ -7,12 +7,6 @@ void naive_conv_fp_relu_fn(
 	/* loop counters */
 	int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-	/*
-	float input[nImg][nIfm][ifhp][ifwp];
-	float output[nImg][nOfm][ofhp][ofwp];
-	float filter[nOfm][nIfm][kh][kw];
-	*/
-
 #pragma omp parallel for private(ofm, ifm, oj, ij, oi, ii, kj, ki)
 	for (img = 0; img < nImg; ++img) {
 		for (ofm = 0; ofm < nOfm; ++ofm) {
@@ -35,18 +29,18 @@ void naive_conv_fp_relu_fn(
 		}
 	}
 
+
 	// RELU
-#pragma omp parallel for private(ofm, oj, ij, oi, ii)
+#pragma omp parallel for private(ofm, oj, oi)
 	for (img = 0; img < nImg; ++img) {
 		for (ofm = 0; ofm < nOfm; ++ofm) {
 			for (oj = 0; oj < ofh; ++oj) {
-				ij = oj * stride_h - pad_h;
 				for (oi = 0; oi < ofw; ++oi) {
-					ii = oi * stride_w - pad_w;
 					output[img][ofm][oj][oi] =
 						(output[img][ofm][oj][oi] < 0.0f) ? 0.0f : output[img][ofm][oj][oi];
 				}
 			}
 		}
 	}
+
 }
