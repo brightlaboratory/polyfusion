@@ -1,0 +1,33 @@
+d := parse_file "/nfs_home/stavarag/work/software/barvinok/iscc_files/padded_conv_relu_fp.c";
+
+#Iteration space
+I1 := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and 0 <= kj < kh and 0 <= ki < kw  and 0 <= oi < ofw and 0 <= ofm <= 63 and 0 <= ifm <= 63; };
+
+I2 := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_50[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and 0 <= oj < ofh and 0 <= oi < ofw and 0 <= ofm <= 63; };
+
+I1_must_write := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and oj < ofhp and 0 <= kj < kh and 0 <= ki < kw and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63 and 0 <= ifm <= 63; };
+
+I2_must_write := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_50[img, ofm_tile, oj, oi, ofm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and 0 <= oj < ofh and oj < ofhp and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63; S_42[img, ofm_tile, ifm_tile] -> ifm_tile[] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm; S_49[img, ofm_tile, oj, oi] -> ofm[] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and 0 <= oj < ofh and 0 <= oi < ofw; };
+
+I1_may_write := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and oj < ofhp and 0 <= kj < kh and 0 <= ki < kw and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63 and 0 <= ifm <= 63; };
+
+I2_may_write := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_50[img, ofm_tile, oj, oi, ofm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and 0 <= oj < ofh and oj < ofhp and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63; };
+
+I1_may_read := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> filter[ofm_tile, ifm_tile, kj, ki, ifm, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and 0 <= kj < kh and 0 <= ki < kw and 0 <= oi < ofw and 0 <= ofm <= 63 and 0 <= ifm <= 63; 
+S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and oj < ofhp and 0 <= kj < kh and 0 <= ki < kw and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63 and 0 <= ifm <= 63;
+S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> pad_gemm_input[img, ifm_tile, oj + kj, ki + oi, ifm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and ifm_tile >= 0 and 64ifm_tile <= -64 + nIfm and 0 <= oj < ofh and kj >= 0 and -oj <= kj < kh and kj < 2pad_h + ifhp - oj and 0 <= ki < kw and oi >= 0 and -ki <= oi < ofw and oi < 2pad_w + ifwp - ki and 0 <= ofm <= 63 and 0 <= ifm <= 63; };
+
+I2_may_read := [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { S_50[img, ofm_tile, oj, oi, ofm] -> output[img, ofm_tile, oj, oi, ofm] : 0 <= img < nImg and ofm_tile >= 0 and 64ofm_tile <= -64 + nOfm and 0 <= oj < ofh and oj < ofhp and 0 <= oi < ofw and oi < ofwp and 0 <= ofm <= 63; };
+
+all_sched := map d[4];
+
+sched := { S_35[img, ofm_tile, ifm_tile, oj, kj, ki, oi, ofm, ifm] -> [1, img, 1, ofm_tile, 1, ifm_tile, 1, oj, 2, kj, 1, ki, 1, oi, 2, ofm, 1, ifm, 0]; S_50[img, ofm_tile, oj, oi, ofm] -> [3, img, 1, ofm_tile, 1, oj, 1, oi, 1, ofm, 0, 0, 0, 0, 0, 0, 0, 0, 0]; };
+
+codegen (sched * (I1 + I2));
+
+#Check if the data footprint of the first op is the same as that of the second op:
+I1_write_footprint := I1_may_write(I1);
+I2_write_footprint := I2_may_write(I2);
+
+I1_I2_write_footprint_diff := (I1_write_footprint - I2_write_footprint);
+I2_I1_write_footprint_diff := (I2_write_footprint - I1_write_footprint);
