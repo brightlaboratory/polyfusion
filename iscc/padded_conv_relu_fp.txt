@@ -31,3 +31,10 @@ I2_write_footprint := I2_may_write(I2);
 
 I1_I2_write_footprint_diff := (I1_write_footprint - I2_write_footprint);
 I2_I1_write_footprint_diff := (I2_write_footprint - I1_write_footprint);
+
+I1_write_footprint_fixed := I1_write_footprint % [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { : ofw = 56 and ofh = 56 and nIfm = 64 and nOfm = 256 and kw = 1 and kh = 1 and pad_w = 0 and pad_h = 0 and nImg = 28 and ifwp = 56 and ifhp = 56 and ofwp = 56 and ofhp = 56};
+
+I2_write_footprint_fixed := I2_write_footprint % [pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { : ofw = 56 and ofh = 56 and nIfm = 64 and nOfm = 256 and kw = 1 and kh = 1 and pad_w = 0 and pad_h = 0 and nImg = 28 and ifwp = 56 and ifhp = 56 and ofwp = 56 and ofhp = 56};
+
+I1_I2_write_footprint_fixed_diff := (I1_write_footprint_fixed - I2_write_footprint_fixed);
+I2_I1_write_footprint_fixed_diff := (I2_write_footprint_fixed - I1_write_footprint_fixed);
