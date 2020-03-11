@@ -54,7 +54,7 @@ void init_buf(float* buf, long size, int initPos, int initOne)
 	int i;
 	zero_buf(buf, size);
 	for (i = 0; i < size; ++i) {
-		buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? drand48() : (0.05 - drand48() / 10.0)));
+		buf[i] = (float)((initOne != 0) ? 1.0 : drand48());
 	}
 }
 
@@ -180,6 +180,8 @@ int main(int argc, char **argv) {
 	zero_buf(&variance[0], nFm);
 	init_buf(&gamma[0], nFm, 0, 1);
 	zero_buf(&beta[0], nFm);
+	init_buf(&gamma[0], nFm, 0, 0);
+	init_buf(&beta[0], nFm, 0, 0);
 
 	flops = (double)nImg * (double)nFm * (double)nFm * (double)ofh * (double)ofw * 4.0 * (double)iters;
 
