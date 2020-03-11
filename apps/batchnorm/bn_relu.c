@@ -19,6 +19,18 @@ libxsmm_smmfunction fwd_gemm;
 
 #define NUM_TRIALS 3
 
+#ifndef SH
+#define SH 1
+#endif // !SH
+
+#ifndef SW
+#define SW 1
+#endif // !SW
+
+#ifndef GEMM_BLOCK
+#define GEMM_BLOCK 64
+#endif // !GEMM_BLOCK
+
 #include "naive_bn_fp_relu.c"
 
 typedef struct {
@@ -29,6 +41,12 @@ typedef struct {
 	double one_norm_test;
 } correctness_t;
 
+void zero_buf(float* buf, long size) {
+	int i;
+	for (i = 0; i < size; ++i) {
+		buf[i] = 0.0f;
+	}
+}
 
 void init_buf(float* buf, long size, int initPos, int initOne)
 {
@@ -58,7 +76,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		rel_err = 0.0;
 		if (diff > 0.0) {
 			rel_err = diff / fabs((double)ref[i]);
-		}
+	}
 		if (rel_err > norms->max_rel_err) {
 			norms->max_rel_err = rel_err;
 #if 0
@@ -74,25 +92,10 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-	}
+}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
-void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float input[N][C][H][W])
-{
-	int n, h, w, c;
-
-	for (n = 0; n < N; n++) {
-		for (c = 0; c < C; c++) {
-			for (h = 0; h < H; h++) {
-				for (w = 0; w < W; w++) {
-					if (h < pad_h || h >= H - pad_h || w < pad_w || w >= W - pad_w)
-						input[n][c][h][w] = 0.0;
-				}
-			}
-		}
-	}
-}
 
 
 int main(int argc, char **argv) {
@@ -181,27 +184,6 @@ int main(int argc, char **argv) {
 	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
 
 
-	/* apply stride in both dimensions */
-/* JIT GEMM kernel */
-#if defined(USE_LIBXSMM)
-	int ldx;
-	ldx = stride_w * GEMM_BLOCK;
-	int* ldx_ptr = NULL;
-	if (stride_w > 1) {
-		ldx_ptr = &ldx;
-	}
-
-
-
-	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
-		return -1;
-	}
-
-	fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-
-#endif
-
 	printf("Allocating data\n");
 	/* allocate data */
 	float(*naive_input)[nIfm][ifhp][ifwp] =
@@ -227,8 +209,6 @@ int main(int argc, char **argv) {
 	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 
-	copy_NCHW_to_GEMM(nImg, ifhp, ifwp, nIfm, naive_input, gemm_input);
-	copy_KCRS_to_GEMM(kh, kw, nIfm, nOfm, naive_filter, gemm_filter);
 
 	clock_t start, end;
 	double exec_time;
@@ -242,9 +222,7 @@ int main(int argc, char **argv) {
 
 		start = clock();
 		l_start = libxsmm_timer_tick();
-		naive_conv_fp_relu_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
+
 		l_end = libxsmm_timer_tick();
 		l_total = libxsmm_timer_duration(l_start, l_end);
 		printf("Naive_GFLOPS =%.5g\n", (flops*1e-9) / l_total / (double)iters);
@@ -252,12 +230,6 @@ int main(int argc, char **argv) {
 		end = clock();
 		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
 		printf("Total time of naive_conv_fp_relu_fn = %f seconds\n", exec_time);
-
-		printf("Calling padded_conv2d_relu_fp\n");
-		padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1,
-			naive_input, naive_filter, check_output);
 
 		printf("Printing input values\n");
 		printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
@@ -285,10 +257,6 @@ int main(int argc, char **argv) {
 	}
 	else {
 		/* Warm up */
-		padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1,
-			naive_input, naive_filter, check_output);
 	}
 
 	printf("##########################################\n");
@@ -299,10 +267,6 @@ int main(int argc, char **argv) {
 	int trial;
 	double min_l_total = 0.0;
 	for (trial = 0; trial < NUM_TRIALS; trial++) {
-		l_total = padded_conv2d_relu_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters,
-			naive_input, naive_filter, check_output);
 
 		if (trial == 0) {
 			min_l_total = l_total;
