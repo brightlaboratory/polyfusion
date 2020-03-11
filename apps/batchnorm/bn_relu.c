@@ -48,6 +48,7 @@ void zero_buf(float* buf, long size) {
 	}
 }
 
+
 void init_buf(float* buf, long size, int initPos, int initOne)
 {
 	int i;
@@ -76,7 +77,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		rel_err = 0.0;
 		if (diff > 0.0) {
 			rel_err = diff / fabs((double)ref[i]);
-	}
+		}
 		if (rel_err > norms->max_rel_err) {
 			norms->max_rel_err = rel_err;
 #if 0
@@ -92,36 +93,25 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
 
 
 int main(int argc, char **argv) {
-	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
-	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
-	int version = 2;
-	int check_correctness = 1;
-
 	correctness_t norms_fwd;
 	memset(&norms_fwd, 0, sizeof(norms_fwd));
 
 	/* some parameters we can overwrite via cli,
 	   default is some inner layer of overfeat */
 	int iters = 1;         /* repetitions of benchmark */
+	int nImg = 32;          /* mini-batch size, "N" */
 	int ifw = 14;           /* input width, "W" */
 	int ifh = 18;           /* input height, "H" */
-	int nImg = 32;          /* mini-batch size, "N" */
-	int nIfm = 256;         /* number of input feature maps, "C" */
-	int nOfm = 512;         /* number of output feature maps, "K" */
-	int kh = 3;             /* filter height, "R" */
-	int kw = 3;             /* filter width, "S" */
-	int pad = 2;            /* padding in output */
-	int stride = 1;         /* stride when accessing inputs */
-
-	pad_w = pad;
-	pad_h = pad;
+	int nFm = 256;         /* number of feature maps */
+	int version = 1;
+	int check_correctness = 1;
 
 	unsigned long long l_start, l_end;
 	double l_total = 0.0;
@@ -130,124 +120,131 @@ int main(int argc, char **argv) {
 	/* reading new values from cli */
 	int i = 1;
 	if (argc > i) iters = atoi(argv[i++]);
+	if (argc > i) nImg = atoi(argv[i++]);
 	if (argc > i) ifw = atoi(argv[i++]);
 	if (argc > i) ifh = atoi(argv[i++]);
-	if (argc > i) nIfm = atoi(argv[i++]);
-	if (argc > i) nOfm = atoi(argv[i++]);
-	if (argc > i) kw = atoi(argv[i++]);
-	if (argc > i) kh = atoi(argv[i++]);
-	if (argc > i) pad_w = atoi(argv[i++]);
-	if (argc > i) pad_h = atoi(argv[i++]);
-	if (argc > i) stride = atoi(argv[i++]);
-	if (argc > i) nImg = atoi(argv[i++]);
+	if (argc > i) nFm = atoi(argv[i++]);
 	if (argc > i) version = atoi(argv[i++]);
 	if (argc > i) check_correctness = atoi(argv[i++]);
 
 	printf("version = %d\n", version);
 
 	/* apply stride in both dimensions */
-	stride_w = stride;
-	stride_h = stride;
+	const int ofh = ifh / SH;
+	const int ofw = ifw / SW;
 
-	pad_h_in = 0;
-	pad_w_in = 0;
-	pad_h_out = 0;
-	pad_w_out = 0;
-
-	/* deriving some values image size */
-	ofh = (ifh + 2 * pad_h - kh) / stride_h + 1;
-	ofw = (ifw + 2 * pad_w - kw) / stride_w + 1;
-	ifhp = ifh + 2 * pad_h_in;
-	ifwp = ifw + 2 * pad_w_in;
-	ofhp = ofh + 2 * pad_h_out;
-	ofwp = ofw + 2 * pad_w_out;
-
-
-	printf("PolyScientist config: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
-		ofw, ofh, nIfm, nOfm, kw, kh, pad_w, pad_h, nImg, ifwp, ifhp, ofwp, ofhp, stride_w, stride_h);
-
-	/* some empty lines at the beginning */
-	printf("\n\n\n");
 
 	/* print some summary */
 	printf("##########################################\n");
 	printf("#                Setting Up              #\n");
 	printf("##########################################\n");
-	printf("PARAMS: W:%d  H:%d  N:%d  C:%d  K:%d  R:%d  S:%d  P:%d  Q:%d  STRIDE:%d\n", ifw, ifh, nImg, nIfm, nOfm, kw, kh, ofh, ofw, stride);
-	printf("PARAMS: ITERS:%d", iters);
-	printf(" InImg %dx%d Padded (%dx%d)\n", ifh, ifw, ifhp, ifwp);
-	printf("OutImg %dx%d Padded (%dx%d)\n", ofh, ofw, ofhp, ofwp);
-	printf("SIZE Input  (MB): %10.2f MiB\n", (double)(nImg*nIfm*ifhp*ifwp * sizeof(float)) / (1024.0*1024.0));
-	printf("SIZE Output (MB): %10.2f MiB\n", (double)(nImg*nOfm*ofhp*ofwp * sizeof(float)) / (1024.0*1024.0));
-	printf("SIZE Input   (1): %10.2f MiB\n", (double)(1 * nIfm*ifhp*ifwp * sizeof(float)) / (1024.0*1024.0));
-	printf("SIZE Output  (1): %10.2f MiB\n", (double)(1 * nOfm*ofhp*ofwp * sizeof(float)) / (1024.0*1024.0));
-	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
+	printf("PARAMS: iters:%d  nImg:%d  ifw:%d  ifh:%d  nFm:%d  version:%d  check_correctness:%d  ofh:%d  ofw:%d  \n",
+		iters, nImg, ifw, ifh, nFm, version, check_correctness, ofh, ofw);
 
+
+	printf("SIZE Input  (MB): %10.2f MiB\n", (double)(nImg*nFm*ifh*ifw * sizeof(float)) / (1024.0*1024.0));
+	printf("SIZE Output (MB): %10.2f MiB\n", (double)(nImg*nFm*ofh*ofw * sizeof(float)) / (1024.0*1024.0));
+	printf("SIZE Input   (1): %10.2f MiB\n", (double)(1 * nFm*ifh*ifw * sizeof(float)) / (1024.0*1024.0));
+	printf("SIZE Output  (1): %10.2f MiB\n", (double)(1 * nFm*ofh*ofw * sizeof(float)) / (1024.0*1024.0));
 
 	printf("Allocating data\n");
 	/* allocate data */
-	float(*naive_input)[nIfm][ifhp][ifwp] =
-		(float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*input)[nFm][ifh][ifw] =
+		(float*)libxsmm_aligned_malloc(nImg*nFm*ifh*ifw * sizeof(float), 2097152);
 
-	float(*naive_output)[nOfm][ofhp][ofwp] =
-		(float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+	float(*input_add)[nFm][ifh][ifw] =
+		(float*)libxsmm_aligned_malloc(nImg*nFm*ifh*ifw * sizeof(float), 2097152);
 
-	float(*naive_filter)[nIfm][kh][kw] =
-		(float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
+	float(*output)[nFm][ofh][ofw] =
+		(float*)libxsmm_aligned_malloc(nImg*nFm*ofh*ofw * sizeof(float), 2097152);
 
-	float(*gemm_input)[nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
-	float(*gemm_output)[nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
-	float(*gemm_filter)[nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
-	float(*check_output)[nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+	float(*check_output)[nFm][ofh][ofw] =
+		(float*)libxsmm_aligned_malloc(nImg*nFm*ofh*ofw * sizeof(float), 2097152);
+
+	float *expectval = (float*)libxsmm_aligned_malloc(nFm * sizeof(float), 2097152);
+	float *rcpstddev = (float*)libxsmm_aligned_malloc(nFm * sizeof(float), 2097152);
+	float *variance = (float*)libxsmm_aligned_malloc(nFm * sizeof(float), 2097152);
+	float *beta = (float*)libxsmm_aligned_malloc(nFm * sizeof(float), 2097152);
+	float *gamma = (float*)libxsmm_aligned_malloc(nFm * sizeof(float), 2097152);
+
 
 	printf("Initializing data\n");
 	/* initialize data */
 	srand48(1);
-	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp, 0, 0);
-	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw, 0, 0);
-	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
-	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
-	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
+	init_buf(&input[0][0][0][0], nImg*nFm*ifh*ifw, 0, 0);
+	init_buf(&input_add[0][0][0][0], nImg*nFm*ifh*ifw, 0, 0);
+	zero_buf(&output[0][0][0][0], nImg*nFm*ofh*ofw);
+	zero_buf(&check_output[0][0][0][0], nImg*nFm*ofh*ofw);
+	zero_buf(&expectval[0], nFm);
+	zero_buf(&rcpstddev[0], nFm);
+	zero_buf(&variance[0], nFm);
+	init_buf(&gamma[0], nFm, 0, 1);
+	zero_buf(&beta[0], nFm);
 
-
-	clock_t start, end;
-	double exec_time;
-	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+	flops = (double)nImg * (double)nFm * (double)nFm * (double)ofh * (double)ofw * 4.0 * (double)iters;
 
 	if (check_correctness) {
 		printf("##########################################\n");
 		printf("#   Correctness - FWD (custom-Storage)   #\n");
 		printf("##########################################\n");
-		printf("Calling naive_conv_fp_relu_fn\n");
+		printf("Calling naive_bn_fp_relu_fn\n");
 
-		start = clock();
+		naive_bn_fp_relu_fn(
+			nImg, nFm, ifh, ifw,
+			ofh, ofw,
+			input,
+			input_add, output,
+			0, expectval, rcpstddev, variance,
+			beta, gamma);
+
 		l_start = libxsmm_timer_tick();
-
+		naive_bn_fp_relu_fn(
+			nImg, nFm, ifh, ifw,
+			ofh, ofw,
+			input,
+			input_add, check_output,
+			1, expectval, rcpstddev, variance,
+			beta, gamma);
 		l_end = libxsmm_timer_tick();
 		l_total = libxsmm_timer_duration(l_start, l_end);
-		printf("Naive_GFLOPS =%.5g\n", (flops*1e-9) / l_total / (double)iters);
 
-		end = clock();
-		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-		printf("Total time of naive_conv_fp_relu_fn = %f seconds\n", exec_time);
+		printf("input: \n");
+		printf("%f %f %f\n", input[0][0][0][0],
+			input[nImg / 2][nFm / 2][ifh / 2][ifw / 2],
+			input[nImg - 1][nFm - 1][ifh - 1][ifw - 1]);
 
-		printf("Printing input values\n");
-		printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
-		printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / GEMM_BLOCK][ifhp / 2][ifwp / 2][(nIfm / 2) % GEMM_BLOCK], gemm_input[nImg - 1][(nIfm - 1) / GEMM_BLOCK][ifhp - 1][ifwp - 1][(nIfm - 1) % GEMM_BLOCK]);
-		printf("Printing weight values\n");
-		printf("%f %f %f\n", naive_filter[0][0][0][0], naive_filter[nOfm / 2][nIfm / 2][kh / 2][kw / 2], naive_filter[nOfm - 1][nIfm - 1][kh - 1][kw - 1]);
-		printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / GEMM_BLOCK][(nIfm / 2) / GEMM_BLOCK][kh / 2][kw / 2][(nOfm / 2) % GEMM_BLOCK][(nIfm / 2) % GEMM_BLOCK], gemm_filter[(nOfm - 1) / GEMM_BLOCK][(nIfm - 1) / GEMM_BLOCK][kh - 1][kw - 1][(nOfm - 1) % GEMM_BLOCK][(nIfm - 1) % GEMM_BLOCK]);
-		printf("Printing output values\n");
-		printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
+		printf("input_add: \n");
+		printf("%f %f %f\n", input_add[0][0][0][0],
+			input_add[nImg / 2][nFm / 2][ifh / 2][ifw / 2],
+			input_add[nImg - 1][nFm - 1][ifh - 1][ifw - 1]);
 
-		printf("Printing check_output values\n");
-		printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
-		printf("Printing gemm_output values\n");
-		printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / GEMM_BLOCK][ofhp / 2][ofwp / 2][(nOfm / 2) % GEMM_BLOCK], gemm_output[nImg - 1][(nOfm - 1) / GEMM_BLOCK][ofhp - 1][ofwp - 1][(nOfm - 1) % GEMM_BLOCK]);
+		printf("expectval: \n");
+		printf("%f %f %f\n", expectval[0], expectval[nFm / 2], expectval[nFm - 1]);
 
+		printf("rcpstddev: \n");
+		printf("%f %f %f\n", rcpstddev[0], rcpstddev[nFm / 2], rcpstddev[nFm - 1]);
+
+		printf("variance: \n");
+		printf("%f %f %f\n", variance[0], variance[nFm / 2], variance[nFm - 1]);
+
+		printf("beta: \n");
+		printf("%f %f %f\n", beta[0], beta[nFm / 2], beta[nFm - 1]);
+
+		printf("gamma: \n");
+		printf("%f %f %f\n", gamma[0], gamma[nFm / 2], gamma[nFm - 1]);
+
+		printf("output: \n");
+		printf("%f %f %f\n", output[0][0][0][0],
+			output[nImg / 2][nFm / 2][ofh / 2][ofw / 2],
+			output[nImg - 1][nFm - 1][ofh - 1][ofw - 1]);
+
+		printf("check_output: \n");
+		printf("%f %f %f\n", check_output[0][0][0][0],
+			check_output[nImg / 2][nFm / 2][ofh / 2][ofw / 2],
+			check_output[nImg - 1][nFm - 1][ofh - 1][ofw - 1]);
 
 		// compare
-		compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+		compare_buf(output, check_output, nImg*nFm*ofh*ofw, &norms_fwd);
 		printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
 		printf("             1-norm of GEMM-code: %f\n", norms_fwd.one_norm_test);
 		printf("      L2-error-norm of GEMM-code: %f\n", norms_fwd.l2_rel_err);
@@ -284,9 +281,14 @@ int main(int argc, char **argv) {
 	printf("Real_GFLOPS =%.5g\n", (flops*1e-9) / l_total);
 
 
-	libxsmm_free(gemm_input);
-	libxsmm_free(gemm_output);
-	libxsmm_free(gemm_filter);
-	libxsmm_free(check_output);
+	libxsmm_free(input);
+	libxsmm_free(input_add);
+	libxsmm_free(output);
+	libxsmm_free(expectval);
+	libxsmm_free(rcpstddev);
+	libxsmm_free(variance);
+	libxsmm_free(beta);
+	libxsmm_free(gamma);
+
 	return 0;
 }

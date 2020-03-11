@@ -9,10 +9,10 @@
 void naive_bn_fp_relu_fn(
 	const int nImg, const int nFm, const int ifh, const int ifw,
 	const int ofh, const int ofw,
-	const float input[nImg][nFm][ifh][ifw],
-	const float input_add[nImg][nFm][ifh][ifw], float output[nImg][nFm][ofh][ofw],
+	float input[nImg][nFm][ifh][ifw],
+	float input_add[nImg][nFm][ifh][ifw], float output[nImg][nFm][ofh][ofw],
 	int norm_type, float expectval[nFm], float rcpstddev[nFm], float variance[nFm],
-	const float beta[nFm], const float gamma[nFm])
+	float beta[nFm], float gamma[nFm])
 {
 	const float nhw = (float)(nImg * ifh * ifw);
 	const float recp_nhw = 1.0f / nhw;
