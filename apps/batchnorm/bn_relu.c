@@ -31,8 +31,7 @@ libxsmm_smmfunction fwd_gemm;
 #define GEMM_BLOCK 64
 #endif // !GEMM_BLOCK
 
-#include "naive_bn_fp_relu.c"
-#include "bn_fp_relu_fused.c"
+#include "bn_highperf.c"
 
 typedef struct {
 	double max_rel_err;
@@ -192,6 +191,8 @@ int main(int argc, char **argv) {
 		printf("##########################################\n");
 		printf("Calling naive_bn_fp_relu\n");
 
+		l_start = libxsmm_timer_tick();
+
 		naive_bn_fp_relu(
 			nImg, nFm, ifh, ifw,
 			ofh, ofw,
@@ -200,16 +201,17 @@ int main(int argc, char **argv) {
 			0, expectval, rcpstddev, variance,
 			beta, gamma);
 
-		l_start = libxsmm_timer_tick();
-		bn_fp_relu_fused(
+		l_end = libxsmm_timer_tick();
+		l_total = libxsmm_timer_duration(l_start, l_end);
+		printf("Naive_GFLOPS =%.5g\n", (flops*1e-9) / l_total / (float)iters);
+
+		bn_highperf(
 			nImg, nFm, ifh, ifw,
 			ofh, ofw,
 			input,
 			input_add, check_output,
 			1, expectval, rcpstddev, variance,
-			beta, gamma);
-		l_end = libxsmm_timer_tick();
-		l_total = libxsmm_timer_duration(l_start, l_end);
+			beta, gamma, version, 1 /* iters */);
 
 		printf("input: \n");
 		printf("%f %f %f\n", input[0][0][0][0],
@@ -257,13 +259,13 @@ int main(int argc, char **argv) {
 	}
 	else {
 		/* Warm up */
-		bn_fp_relu_fused(
+		bn_highperf(
 			nImg, nFm, ifh, ifw,
 			ofh, ofw,
 			input,
 			input_add, check_output,
 			1, expectval, rcpstddev, variance,
-			beta, gamma);
+			beta, gamma, version, 1 /* iters */);
 	}
 
 	printf("##########################################\n");
@@ -274,6 +276,14 @@ int main(int argc, char **argv) {
 	int trial;
 	double min_l_total = 0.0;
 	for (trial = 0; trial < NUM_TRIALS; trial++) {
+
+		l_total = bn_highperf(
+			nImg, nFm, ifh, ifw,
+			ofh, ofw,
+			input,
+			input_add, check_output,
+			1, expectval, rcpstddev, variance,
+			beta, gamma, version, iters);
 
 		if (trial == 0) {
 			min_l_total = l_total;
