@@ -6,7 +6,7 @@
 #define SW 1
 #endif // !SW
 
-void naive_bn_fp_relu_fn(
+void naive_bn_fp_relu(
 	const int nImg, const int nFm, const int ifh, const int ifw,
 	const int ofh, const int ofw,
 	float input[nImg][nFm][ifh][ifw],
@@ -59,7 +59,7 @@ void naive_bn_fp_relu_fn(
 		for (fm = 0; fm < nFm; fm++) {
 			for (hi = 0, ho = 0; hi < ifh; hi += SH, ho++) {
 				for (wi = 0, wo = 0; wi < ifw; wi += SW, wo++) {
-					/* BN + scale (gamma, beta) */
+					/* BN + scale: gamma, shift: beta */
 					output[img][fm][ho][wo] =
 						gamma[fm] *
 						(input[img][fm][hi][wi] - expectval[fm]) * rcpstddev[fm]
@@ -69,6 +69,31 @@ void naive_bn_fp_relu_fn(
 		}
 	}
 
+#pragma omp parallel for private(img, fm, hi, wi, ho, wo)
+	for (img = 0; img < nImg; img++) {
+		for (fm = 0; fm < nFm; fm++) {
+			for (hi = 0, ho = 0; hi < ifh; hi += SH, ho++) {
+				for (wi = 0, wo = 0; wi < ifw; wi += SW, wo++) {
+					/* BN + scale (gamma, beta) */
+					output[img][fm][ho][wo] += input_add[img][fm][hi][wi];
+				}
+			}
+		}
+	}
+
+#pragma omp parallel for private(img, fm, hi, wi, ho, wo)
+	for (img = 0; img < nImg; img++) {
+		for (fm = 0; fm < nFm; fm++) {
+			for (hi = 0, ho = 0; hi < ifh; hi += SH, ho++) {
+				for (wi = 0, wo = 0; wi < ifw; wi += SW, wo++) {
+					/* BN + scale (gamma, beta) */
+					output[img][fm][ho][wo] = (output[img][fm][ho][wo] < 0.0) ? 0.0f
+						: output[img][fm][ho][wo];
+				}
+			}
+		}
+	}
 #pragma endscop
 
 }
+

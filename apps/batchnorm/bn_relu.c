@@ -32,6 +32,7 @@ libxsmm_smmfunction fwd_gemm;
 #endif // !GEMM_BLOCK
 
 #include "naive_bn_fp_relu.c"
+#include "bn_fp_relu_fused.c"
 
 typedef struct {
 	double max_rel_err;
@@ -189,9 +190,9 @@ int main(int argc, char **argv) {
 		printf("##########################################\n");
 		printf("#   Correctness - FWD (custom-Storage)   #\n");
 		printf("##########################################\n");
-		printf("Calling naive_bn_fp_relu_fn\n");
+		printf("Calling naive_bn_fp_relu\n");
 
-		naive_bn_fp_relu_fn(
+		naive_bn_fp_relu(
 			nImg, nFm, ifh, ifw,
 			ofh, ofw,
 			input,
@@ -200,7 +201,7 @@ int main(int argc, char **argv) {
 			beta, gamma);
 
 		l_start = libxsmm_timer_tick();
-		naive_bn_fp_relu_fn(
+		bn_fp_relu_fused(
 			nImg, nFm, ifh, ifw,
 			ofh, ofw,
 			input,
@@ -256,6 +257,13 @@ int main(int argc, char **argv) {
 	}
 	else {
 		/* Warm up */
+		bn_fp_relu_fused(
+			nImg, nFm, ifh, ifw,
+			ofh, ofw,
+			input,
+			input_add, check_output,
+			1, expectval, rcpstddev, variance,
+			beta, gamma);
 	}
 
 	printf("##########################################\n");
