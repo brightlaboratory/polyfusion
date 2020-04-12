@@ -1,6 +1,6 @@
 
 
-set -x
+#set -x
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
 
@@ -38,7 +38,7 @@ mkdir ${TEMP}
 		export OMP_NUM_THREADS=${images}
 		for version in $VERSIONS #FIXME
 		do
-		  (cd .. && make clean && make MACROFLAGS="-DSH=$stride -DSTRIDE_W=$stride ") 	
+		  (cd .. && make clean && make MACROFLAGS="-DSH=$stride -DSW=$stride ") 	
 		   ../bn_relu ${iters} ${images} ${ifw} ${ifh} ${nIfm} ${version} ${check_correctness} &> run_output
 				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
 				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
