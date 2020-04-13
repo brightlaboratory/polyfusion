@@ -27,13 +27,15 @@ mkdir ${TEMP}
        stride=${10}
        config_num=${11}
 
-
 	for images in 28
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 		META_CONFIG_OUT=${PERF_DIR}/meta_${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
 		rm ${META_CONFIG_OUT}
+
+		{ echo -n "${config_num}," ; } >> ${CONFIG_OUT}
+	        { echo "${config_num}," ; } >> ${META_CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
 		for version in $VERSIONS #FIXME
@@ -44,8 +46,10 @@ mkdir ${TEMP}
 				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
 				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
 
-                                { echo "${version},${GFLOPS}" ; } >> ${CONFIG_OUT}
-				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
+                                { echo -n "${version},${GFLOPS}" ; } >> ${CONFIG_OUT}
+				echo  "${version},${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 		done
+
+		{ echo " " ; } >> ${CONFIG_OUT}
 	done
 
