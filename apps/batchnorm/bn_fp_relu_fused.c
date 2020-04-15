@@ -38,7 +38,7 @@ void bn_fp_relu_fused(
 						(input[img][fm][hi][wi] - expectval[fm]) * rcpstddev[fm]
 						+ beta[fm];
 
-					output[img][fm][ho][wo] += input_add[img][fm][hi][wi];
+//					output[img][fm][ho][wo] += input_add[img][fm][hi][wi];
 					output[img][fm][ho][wo] = (output[img][fm][ho][wo] < 0.0) ? 0.0f
 						: output[img][fm][ho][wo];
 				}

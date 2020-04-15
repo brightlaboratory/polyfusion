@@ -69,17 +69,19 @@ void naive_bn_fp_relu(
 		}
 	}
 
+/*
 #pragma omp parallel for private(img, fm, hi, wi, ho, wo)
 	for (img = 0; img < nImg; img++) {
 		for (fm = 0; fm < nFm; fm++) {
 			for (hi = 0, ho = 0; hi < ifh; hi += SH, ho++) {
 				for (wi = 0, wo = 0; wi < ifw; wi += SW, wo++) {
-					/* BN + scale (gamma, beta) */
+					// BN + scale (gamma, beta) 
 					output[img][fm][ho][wo] += input_add[img][fm][hi][wi];
 				}
 			}
 		}
 	}
+*/
 
 #pragma omp parallel for private(img, fm, hi, wi, ho, wo)
 	for (img = 0; img < nImg; img++) {

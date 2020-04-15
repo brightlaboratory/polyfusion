@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
 	init_buf(&gamma[0], nFm, 0, 0);
 	init_buf(&beta[0], nFm, 0, 0);
 
-	flops = (double)nImg * (double)nFm * (double)ofh * (double)ofw * 5.0 * (double)iters;
+	flops = (double)nImg * (double)nFm * (double)ofh * (double)ofw * 4.0 * (double)iters;
 
 	if (check_correctness) {
 		printf("##########################################\n");
@@ -273,6 +273,7 @@ int main(int argc, char **argv) {
 	printf("##########################################\n");
 
 
+	printf("NUM_TRIALS = %d\n", NUM_TRIALS);
 	int trial;
 	double min_l_total = 0.0;
 	for (trial = 0; trial < NUM_TRIALS; trial++) {
