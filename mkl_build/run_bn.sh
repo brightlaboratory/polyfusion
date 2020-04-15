@@ -42,7 +42,7 @@ export OMP_NUM_THREADS=$mb
 config="mb${mb}ic${nIfm}ih${ifh}iw${ifw}n"
 
 #echo -n $config, >> ${OUT}
-runtime=`$BENCHDNN --bnorm --mode=p --dir=FWD_I --dt=f32 --flags=SR  $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f6`
+runtime=`$BENCHDNN --bnorm --mode=p --dir=FWD_I --dt=f32 --flags=GSR  $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f6`
 echo runtime: $runtime
 FLOPS=$(((mb * nIfm * ifh * ifw * 4)))
 echo -n ${config_num},$FLOPS,$runtime >> ${mb}_${OUT}
