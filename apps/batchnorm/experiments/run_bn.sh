@@ -43,10 +43,11 @@ mkdir ${TEMP}
 		do
 		   ../bn_relu ${iters} ${images} ${ifw} ${ifh} ${nIfm} ${version} ${check_correctness} &> run_output
 				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+				FP_TIME=`cat run_output |  grep fp_time |  cut -d= -f2`
 				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
 				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
 
-                                { echo -n "${version},${GFLOPS}," ; } >> ${CONFIG_OUT}
+                                { echo -n "${version},${FP_TIME},${GFLOPS}," ; } >> ${CONFIG_OUT}
 				echo  "${version},${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 		done
 

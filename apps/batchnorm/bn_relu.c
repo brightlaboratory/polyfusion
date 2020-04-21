@@ -17,7 +17,7 @@ libxsmm_smmfunction fwd_gemm;
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#define NUM_TRIALS 3
+#define NUM_TRIALS 1
 
 #ifndef SH
 #define SH 1
@@ -298,7 +298,7 @@ int main(int argc, char **argv) {
 
 	printf("Elapsed time of padded_conv_fp = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
-	printf("fp time = %.5g\n", ((double)(l_total / iters)));
+	printf("fp_time(ms) =%.5g\n", ((double)(l_total * 1000.0 / iters)));
 	printf("Real_GFLOPS =%.5g\n", (flops*1e-9) / l_total);
 
 
