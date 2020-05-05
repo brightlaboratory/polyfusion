@@ -3,7 +3,7 @@ set -x
 #rm ${OUT}
 BENCHDNN=/nfs_home/stavarag/work/polyfusion/mkl_build/mkl-dnn/build/tests/benchdnn/benchdnn
 
-TAGS="--tag=nChw8c" #FIXME 
+TAGS="--tag=nChw16c" #FIXME 
 
 #Default values.
 iters=1
