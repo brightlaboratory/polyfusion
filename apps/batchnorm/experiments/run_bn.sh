@@ -28,7 +28,7 @@ mkdir ${TEMP}
        config_num=${11}
 
 	(cd .. && make clean && make)
-	for images in 28
+	for images in 280
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 		META_CONFIG_OUT=${PERF_DIR}/meta_${config_num}_${images}_${OUT}
@@ -38,7 +38,7 @@ mkdir ${TEMP}
 		{ echo -n "${config_num}," ; } >> ${CONFIG_OUT}
 	        { echo "${config_num}," ; } >> ${META_CONFIG_OUT}
 
-		export OMP_NUM_THREADS=${images}
+		export OMP_NUM_THREADS=28
 		for version in $VERSIONS #FIXME
 		do
 		   ../bn_relu ${iters} ${images} ${ifw} ${ifh} ${nIfm} ${version} ${check_correctness} &> run_output

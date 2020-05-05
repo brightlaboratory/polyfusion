@@ -3,7 +3,8 @@ set -x
 #rm ${OUT}
 BENCHDNN=/nfs_home/stavarag/work/polyfusion/mkl_build/mkl-dnn/build/tests/benchdnn/benchdnn
 
-TAGS="--tag=nChw16c" #FIXME 
+#TAGS="--tag=nChw16c" #FIXME 
+TAGS=
 
 #Default values.
 iters=1
@@ -35,11 +36,11 @@ config_num=${11}
 oh=$(((ifh + 2*pad_h - kh)/stride + 1))
 ow=$(((ifw + 2*pad_w - kw)/stride + 1))
 
-for mb in 28
+for mb in 280
 do
 
 export KMP_AFFINITY=granularity=fine,compact,1,28
-export OMP_NUM_THREADS=$mb
+export OMP_NUM_THREADS=28
 
 
 config="mb${mb}ic${nIfm}ih${ifh}iw${ifw}n"
