@@ -18,7 +18,6 @@ pad_w=0
 pad_h=0
 stride=1
 
-mb=28
 #Taking values from terminal
 
 iters=$1
