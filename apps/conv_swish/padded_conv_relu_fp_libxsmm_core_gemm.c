@@ -240,9 +240,8 @@ inline void padded_conv_relu_fp_libxsmm_core_gemm_fused2(int nImg, int nIfm, int
 
 					for (oi = 0; oi < ofw; ++oi) {
 						for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
-							output[img][ofm_tile][oj][oi][ofm] =
-								(output[img][ofm_tile][oj][oi][ofm] < 0.0f) ? 0.0f :
-								output[img][ofm_tile][oj][oi][ofm];
+							output[img][ofm_tile][oj][oi][ofm] *=
+							( 1/ (1 + exp(-output[img][ofm_tile][oj][oi][ofm])) );
 						}
 					}
 				}
@@ -349,4 +348,146 @@ inline void padded_conv_relu_fp_libxsmm_core_gemm_fused4(int nImg, int nIfm, int
 			}
 		}
 	}
+}
+
+inline void padded_conv_relu_fp_libxsmm_core_gemm_fused_swish(int nImg, int nIfm, int nOfm, int ifhp,
+	int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+		int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
+	for (img = 0; img < nImg; ++img) {
+		// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+			for (kj = 0; kj < kh - 1; ++kj) {
+				for (ki = 0; ki < kw; ++ki) {
+					for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+						for (oj = 0; oj < ofh; ++oj) {
+							ij = oj * stride_h;
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+
+						}
+					}
+				}
+			}
+			for (kj = kh - 1; kj < kh; ++kj) {
+				for (ki = 0; ki < kw - 1; ++ki) {
+					for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+						for (oj = 0; oj < ofh; ++oj) {
+							ij = oj * stride_h;
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+
+						}
+					}
+				}
+				for (ki = kw - 1; ki < kw; ++ki) {
+					for (ifm_tile = 0; ifm_tile < (nIfm / GEMM_BLOCK)-1; ++ifm_tile) {
+						for (oj = 0; oj < ofh; ++oj) {
+							ij = oj * stride_h;
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+
+						}
+					}
+					for (ifm_tile = (nIfm / GEMM_BLOCK)-1; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+						for (oj = 0; oj < ofh; ++oj) {
+							ij = oj * stride_h;
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+							
+							for (oi = 0; oi < ofw; ++oi) {
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+								output[img][ofm_tile][oj][oi][ofm] *=
+								( 1/ (1 + exp(-output[img][ofm_tile][oj][oi][ofm])) );
+								}
+							}
+
+						}
+					}
+
+
+				}
+
+
+			}
+
+		}
+	}
+}
+
+inline void padded_conv_relu_fp_libxsmm_core_gemm_fused_swish2(int nImg, int nIfm, int nOfm, int ifhp,
+	int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
+	for (img = 0; img < nImg; ++img) {
+		// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+		for (oj = 0; oj < ofh; ++oj) {
+			ij = oj * stride_h;
+			for (kj = 0; kj < kh-1; ++kj) {
+				for (ki = 0; ki < kw; ++ki) {
+					for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+						for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+						}
+					}
+				}
+			}
+			for (kj = kh-1; kj < kh; ++kj) {
+				for (ki = 0; ki < kw -1; ++ki) {
+					for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+						for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+						}
+					}
+				}
+				for (ki = kw -1; ki < kw; ++ki) {
+					for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+						for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+						}
+
+						for (oi = 0; oi < ofw; ++oi) {
+							for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+							output[img][ofm_tile][oj][oi][ofm] *=
+							( 1/ (1 + exp(-output[img][ofm_tile][oj][oi][ofm])) );
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+	}	
 }

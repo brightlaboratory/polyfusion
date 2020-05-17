@@ -90,6 +90,26 @@ double padded_conv2d_relu_fp(
 
 		l_end = libxsmm_timer_tick();
 	}
+	else if (version == 9) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_relu_fp_libxsmm_core_gemm_fused_swish(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 10) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_relu_fp_libxsmm_core_gemm_fused_swish2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
 	else {
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
